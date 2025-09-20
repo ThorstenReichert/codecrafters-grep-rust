@@ -18,6 +18,10 @@ pub fn is_word(char: char) -> bool {
     is_digit(char) || is_lower_case_letter(char) || is_upper_case_letter(char) || char == '_'
 }
 
+pub fn is_any_of(search_values: &[char], char: char) -> bool {
+    search_values.contains(&char)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +118,19 @@ mod tests {
     #[test]
     fn test_is_word_other_symbol(){
         assert!(!is_word('$'))
+    }
+
+    #[test]
+    fn test_is_any_of() {
+        assert!(is_any_of(&['a'], 'a'));
+        assert!(is_any_of(&['a', 'z'], 'a'));
+        assert!(is_any_of(&['a', 'z'], 'z'));
+    }
+
+    #[test]
+    fn test_is_any_of_no_match() {
+        assert!(!is_any_of(&[], 'a'));
+        assert!(!is_any_of(&['b'], 'a'));
+        assert!(!is_any_of(&['b', '_'], 'a'));
     }
 }
