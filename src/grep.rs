@@ -10,9 +10,14 @@ pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     } else if pattern == "\\w" {
         return input_line.contains(patterns::is_word);
     } else if pattern.starts_with('[') && pattern.ends_with(']') {
-        let pattern_chars: Vec<char> = pattern[1..pattern.len()-1].chars().collect();
-        return input_line.contains(|c| 
-            is_any_of(&pattern_chars, c));
+        let char_group: Vec<char> = pattern[1..pattern.len() - 1].chars().collect();
+
+        if char_group.starts_with(&['^']) {
+            let negative_char_group = &char_group[1..];
+            return input_line.contains(|c| !is_any_of(&negative_char_group, c))
+        } else {
+            return input_line.contains(|c| is_any_of(&char_group, c));
+        }
     } else {
         panic!("Unhandled pattern: {}", pattern)
     }
@@ -53,7 +58,7 @@ mod tests {
     }
 
     #[test]
-    fn test_match_pattern_character_group(){
+    fn test_match_pattern_character_group() {
         assert!(match_pattern("apple", "[abc]"));
         assert!(match_pattern("apple", "[cba]"));
     }
@@ -63,5 +68,15 @@ mod tests {
         assert!(!match_pattern("apple", "[]"));
         assert!(!match_pattern("apple", "[b]"));
         assert!(!match_pattern("apple", "[_xy]"));
+    }
+
+    #[test]
+    fn test_match_pattern_negative_character_group() {
+        assert!(match_pattern("cat", "[^abc]"))
+    }
+
+    #[test]
+    fn test_match_pattern_negative_character_group_match() {
+        assert!(!match_pattern("cab", "[^abc]"));
     }
 }
