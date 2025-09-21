@@ -24,7 +24,10 @@ pub enum Syntax {
     OneOrMore { syntax: Box<Syntax> },
 
     /// Matches the contained syntax zero or more times.
-    ZeroOrMore { syntax: Box<Syntax> }
+    ZeroOrMore { syntax: Box<Syntax> },
+
+    /// Matches any single character.
+    Wildcard,
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -79,6 +82,9 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
         } else if remainder.starts_with(&[Token::Backslash, Token::Literal('w')]) {
             syntax.push(Syntax::Word);
             remainder = &remainder[2..];
+        } else if remainder.starts_with(&[Token::Dot]) {
+            syntax.push(Syntax::Wildcard);
+            remainder = &remainder[1..];
         } else if remainder.starts_with(&[Token::Dollar]) {
             syntax.push(Syntax::EndOfLineAnchor);
             remainder = &remainder[1..];
@@ -215,5 +221,10 @@ mod tests {
                 syntax: Box::new(Syntax::Literal { char: 'a' }),
             },
         )
+    }
+
+    #[test]
+    fn test_parse_pattern_wildcard() {
+        assert_single(parse_pattern(&[Token::Dot]), Syntax::Wildcard);
     }
 }

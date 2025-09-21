@@ -10,6 +10,7 @@ use syntax::Syntax;
 
 fn is_match(char: char, pattern: &Syntax) -> bool {
     match pattern {
+        Syntax::Wildcard => true,
         Syntax::Literal { char: c } => *c == char,
         Syntax::Digit => patterns::is_digit(char),
         Syntax::Word => patterns::is_word(char),
@@ -209,6 +210,12 @@ mod tests {
         assert!(match_pattern("dogs", "dogs?"));
         assert!(match_pattern("dog", "dogs?"));
         assert!(!match_pattern("cat", "dogs?"));
+    }
+
+    #[test]
+    fn test_match_pattern_wildcard() {
+        assert!(match_pattern("dog", "d.g"));
+        assert!(!match_pattern("cat", "d.g"));
     }
 
     #[test]

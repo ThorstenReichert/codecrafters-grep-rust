@@ -9,7 +9,8 @@ pub enum Token {
     Caret,
     Dollar,
     Plus,
-    QuestionMark
+    QuestionMark,
+    Dot
 }
 
 pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
@@ -23,6 +24,7 @@ pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
             '$' => Token::Dollar,
             '+' => Token::Plus,
             '?' => Token::QuestionMark,
+            '.' => Token::Dot,
             other => Token::Literal(other),
         })
         .collect()
@@ -38,6 +40,7 @@ impl fmt::Display for Token {
             Token::Dollar => write!(f, "$"),
             Token::Plus => write!(f, "+"),
             Token::QuestionMark => write!(f, "?"),
+            Token::Dot => write!(f, "."),
             Token::Literal(c) => write!(f, "{}", c)
         }
     }
@@ -80,6 +83,11 @@ mod tests {
     #[test]
     fn test_tokenize_pattern_question_mark() {
         assert_eq!(tokenize_pattern("?"), [Token::QuestionMark]);
+    }
+
+    #[test]
+    fn test_tokenize_pattern_dot() {
+        assert_eq!(tokenize_pattern("."), [Token::Dot]);
     }
 
     #[test]
