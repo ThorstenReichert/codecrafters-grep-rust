@@ -57,25 +57,50 @@ fn parse_pattern(pattern: &str) -> Vec<syntax::Syntax> {
     syntax
 }
 
+fn is_match(char: char, pattern: &Syntax) -> bool {
+    match pattern {
+        Syntax::Literal { char: c } => *c == char,
+        Syntax::Digit => patterns::is_digit(char),
+        Syntax::Word => patterns::is_word(char),
+        Syntax::CharacterClass {
+            chars: cs,
+            is_negated: true,
+        } => !patterns::is_any_of(&cs, char),
+        Syntax::CharacterClass {
+            chars: cs,
+            is_negated: false,
+        } => patterns::is_any_of(&cs, char),
+    }
+}
+
+fn match_here(text: &str, pattern: &[Syntax]) -> bool {
+    let Some(syntax) = pattern.get(0) else {
+        // The entire pattern matched, return success.
+        return true;
+    };
+
+    let Some(c) = &text.chars().next() else {
+        // No more text, but still pattern left to match, return non-success.
+        return false;
+    };
+
+    if is_match(*c, syntax) {
+        return match_here(&text[1..], &pattern[1..])
+    }
+
+    return false;
+}
+
 pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     let syntax = parse_pattern(pattern);
 
-    // Supports only single syntax item for now.
-    assert_eq!(syntax.len(), 1);
-
-    match &syntax[0] {
-        Syntax::Literal { char } => input_line.contains(*char),
-        Syntax::Digit => input_line.contains(patterns::is_digit),
-        Syntax::Word => input_line.contains(patterns::is_word),
-        Syntax::CharacterClass {
-            chars,
-            is_negated: true,
-        } => input_line.contains(|c| !patterns::is_any_of(&chars, c)),
-        Syntax::CharacterClass {
-            chars,
-            is_negated: false,
-        } => input_line.contains(|c| patterns::is_any_of(&chars, c)),
+    for start_index in 0..input_line.len() {
+        if match_here(&input_line[start_index..], &syntax) {
+            return true;
+        }
     }
+
+    false
 }
 
 #[cfg(test)]
@@ -180,5 +205,18 @@ mod tests {
     #[test]
     fn test_match_pattern_negative_character_group_match() {
         assert!(!match_pattern("cab", "[^abc]"));
+    }
+
+    #[test]
+    fn test_match_pattern_combined_character_classes() {
+        assert!(match_pattern("1 apple", "\\d apple"));
+        assert!(!match_pattern("1 orange", "\\d apple"));
+
+        assert!(match_pattern("100 apples", "\\d\\d\\d apple"));
+        assert!(!match_pattern("1 apple", "\\d\\d\\d apple"));
+        
+        assert!(match_pattern("3 dogs", "\\d \\w\\w\\ws"));
+        assert!(match_pattern("4 cats", "\\d \\w\\w\\ws"));
+        assert!(!match_pattern("1 dog", "\\d \\w\\w\\ws"));
     }
 }
