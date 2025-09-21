@@ -1,6 +1,7 @@
 mod patterns;
 mod str;
 mod syntax;
+mod tokens;
 
 use str::StringUtils;
 use syntax::Syntax;
@@ -40,7 +41,8 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
 }
 
 pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
-    let syntax = syntax::parse_pattern(pattern);
+    let tokens = tokens::tokenize_pattern(pattern);
+    let syntax = syntax::parse_pattern(&tokens);
 
     for start_index in 0..input_line.len() {
         if match_here(&input_line.slice(start_index..), &syntax) {

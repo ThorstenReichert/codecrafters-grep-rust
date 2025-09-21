@@ -1,4 +1,4 @@
-use super::str::StringUtils;
+use crate::grep::tokens::Token;
 
 #[derive(Debug, PartialEq)]
 pub enum Syntax {
@@ -15,48 +15,49 @@ pub enum Syntax {
     CharacterClass { chars: Vec<char>, is_negated: bool },
 }
 
-pub fn parse_pattern(pattern: &str) -> Vec<Syntax> {
+pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
+    Syntax::CharacterClass { chars: tokens.iter().map(|t| match t {
+        Token::Literal(c) => *c,
+        other => panic!("Invalid token '{}' in character class", other)
+    }).collect(), is_negated: is_negated }
+}
+
+pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
 
     while remainder.len() > 0 {
         let prev_len = remainder.len();
 
-        if remainder.starts_with('[') {
-            if let Some(end) = remainder.find(']') {
-                let character_class = &pattern.slice(1..end);
-                if character_class.starts_with('^') {
+        if remainder.starts_with(&[Token::OpenSquareBracket]) {
+            if let Some(end) = remainder
+                .iter()
+                .position(|t| *t == Token::CloseSquareBracket)
+            {
+                let character_class = &pattern[1..end];
+                if character_class.starts_with(&[Token::Caret]) {
                     let negated_character_class = &character_class[1..];
 
-                    syntax.push(Syntax::CharacterClass {
-                        chars: negated_character_class.chars().collect(),
-                        is_negated: true,
-                    });
-                    remainder = &remainder.slice(end + 1..);
+                    syntax.push(into_character_class(negated_character_class, true));
+                    remainder = &remainder[end + 1..];
                 } else {
-                    syntax.push(Syntax::CharacterClass {
-                        chars: character_class.chars().collect(),
-                        is_negated: false,
-                    });
-                    remainder = &remainder.slice(end + 1..);
+                    syntax.push(into_character_class(character_class, false));
+                    remainder = &remainder[end + 1..];
                 }
             } else {
-                panic!(
-                    "Incomplete character class '{}' (missing closing bracket)",
-                    remainder
-                );
+                panic!("Incomplete character class (missing closing bracket)");
             }
-        } else if remainder.starts_with("\\d") {
+        } else if remainder.starts_with(&[Token::Backslash, Token::Literal('d')]) {
             syntax.push(Syntax::Digit);
-            remainder = &remainder.slice(2..);
-        } else if remainder.starts_with("\\w") {
+            remainder = &remainder[2..];
+        } else if remainder.starts_with(&[Token::Backslash, Token::Literal('w')]) {
             syntax.push(Syntax::Word);
-            remainder = &remainder.slice(2..);
+            remainder = &remainder[2..];
+        } else if let Some(Token::Literal(c)) = remainder.get(0) {
+            syntax.push(Syntax::Literal { char: *c });
+            remainder = &remainder[1..];
         } else {
-            syntax.push(Syntax::Literal {
-                char: remainder.chars().next().unwrap(),
-            });
-            remainder = &remainder.slice(1..);
+            panic!("Malformed pattern, cannot parse token");
         }
 
         // Sanity check to ensure that progress is made.
@@ -84,23 +85,38 @@ mod tests {
 
     #[test]
     fn test_parse_pattern_literal() {
-        assert_single(parse_pattern("a"), Syntax::Literal { char: 'a' });
+        assert_single(
+            parse_pattern(&[Token::Literal('a')]),
+            Syntax::Literal { char: 'a' },
+        );
     }
 
     #[test]
     fn test_parse_pattern_digit() {
-        assert_single(parse_pattern("\\d"), Syntax::Digit);
+        assert_single(
+            parse_pattern(&[Token::Backslash, Token::Literal('d')]),
+            Syntax::Digit,
+        );
     }
 
     #[test]
     fn test_parse_pattern_word() {
-        assert_single(parse_pattern("\\w"), Syntax::Word);
+        assert_single(
+            parse_pattern(&[Token::Backslash, Token::Literal('w')]),
+            Syntax::Word,
+        );
     }
 
     #[test]
     fn test_parse_pattern_character_class() {
         assert_single(
-            parse_pattern("[abc]"),
+            parse_pattern(&[
+                Token::OpenSquareBracket,
+                Token::Literal('a'),
+                Token::Literal('b'),
+                Token::Literal('c'),
+                Token::CloseSquareBracket,
+            ]),
             Syntax::CharacterClass {
                 chars: vec!['a', 'b', 'c'],
                 is_negated: false,
@@ -111,7 +127,14 @@ mod tests {
     #[test]
     fn test_parse_pattern_negated_character_class() {
         assert_single(
-            parse_pattern("[^abc]"),
+            parse_pattern(&[
+                Token::OpenSquareBracket,
+                Token::Caret,
+                Token::Literal('a'),
+                Token::Literal('b'),
+                Token::Literal('c'),
+                Token::CloseSquareBracket,
+            ]),
             Syntax::CharacterClass {
                 chars: vec!['a', 'b', 'c'],
                 is_negated: true,

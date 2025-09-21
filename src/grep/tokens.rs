@@ -1,0 +1,79 @@
+use std::fmt;
+
+#[derive(Debug, PartialEq)]
+pub enum Token {
+    Literal(char),
+    Backslash,
+    OpenSquareBracket,
+    CloseSquareBracket,
+    Caret,
+}
+
+pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
+    pattern
+        .chars()
+        .map(|c| match c {
+            '\\' => Token::Backslash,
+            '[' => Token::OpenSquareBracket,
+            ']' => Token::CloseSquareBracket,
+            '^' => Token::Caret,
+            other => Token::Literal(other),
+        })
+        .collect()
+}
+
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Token::Backslash => write!(f, "\\"),
+            Token::OpenSquareBracket => write!(f, "["),
+            Token::CloseSquareBracket => write!(f, "]"),
+            Token::Caret => write!(f, "^"),
+            Token::Literal(c) => write!(f, "{}", c)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tokenize_pattern_backslash() {
+        assert_eq!(tokenize_pattern("\\"), [Token::Backslash])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_open_square_bracket() {
+        assert_eq!(tokenize_pattern("["), [Token::OpenSquareBracket])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_closing_square_bracket() {
+        assert_eq!(tokenize_pattern("]"), [Token::CloseSquareBracket])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_caret() {
+        assert_eq!(tokenize_pattern("^"), [Token::Caret])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_complex_pattern() {
+        assert_eq!(
+            tokenize_pattern("[^abc]\\d\\d"),
+            [
+                Token::OpenSquareBracket,
+                Token::Caret,
+                Token::Literal('a'),
+                Token::Literal('b'),
+                Token::Literal('c'),
+                Token::CloseSquareBracket,
+                Token::Backslash,
+                Token::Literal('d'),
+                Token::Backslash,
+                Token::Literal('d')
+            ]
+        )
+    }
+}
