@@ -4,13 +4,16 @@ use std::fmt;
 pub enum Token {
     Literal(char),
     Backslash,
+    OpenBracket,
+    CloseBracket,
     OpenSquareBracket,
     CloseSquareBracket,
     Caret,
     Dollar,
     Plus,
     QuestionMark,
-    Dot
+    Dot,
+    Bar
 }
 
 pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
@@ -18,6 +21,8 @@ pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
         .chars()
         .map(|c| match c {
             '\\' => Token::Backslash,
+            '(' => Token::OpenBracket,
+            ')' => Token::CloseBracket,
             '[' => Token::OpenSquareBracket,
             ']' => Token::CloseSquareBracket,
             '^' => Token::Caret,
@@ -25,6 +30,7 @@ pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
             '+' => Token::Plus,
             '?' => Token::QuestionMark,
             '.' => Token::Dot,
+            '|' => Token::Bar,
             other => Token::Literal(other),
         })
         .collect()
@@ -34,6 +40,8 @@ impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Token::Backslash => write!(f, "\\"),
+            Token::OpenBracket => write!(f, "("),
+            Token::CloseBracket => write!(f, ")"),
             Token::OpenSquareBracket => write!(f, "["),
             Token::CloseSquareBracket => write!(f, "]"),
             Token::Caret => write!(f, "^"),
@@ -41,6 +49,7 @@ impl fmt::Display for Token {
             Token::Plus => write!(f, "+"),
             Token::QuestionMark => write!(f, "?"),
             Token::Dot => write!(f, "."),
+            Token::Bar => write!(f, "|"),
             Token::Literal(c) => write!(f, "{}", c)
         }
     }
@@ -53,6 +62,16 @@ mod tests {
     #[test]
     fn test_tokenize_pattern_backslash() {
         assert_eq!(tokenize_pattern("\\"), [Token::Backslash])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_open_bracket() {
+        assert_eq!(tokenize_pattern("("), [Token::OpenBracket])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_closingbracket() {
+        assert_eq!(tokenize_pattern(")"), [Token::CloseBracket])
     }
 
     #[test]
@@ -88,6 +107,11 @@ mod tests {
     #[test]
     fn test_tokenize_pattern_dot() {
         assert_eq!(tokenize_pattern("."), [Token::Dot]);
+    }
+
+    #[test]
+    fn test_tokenize_pattern_bar() {
+        assert_eq!(tokenize_pattern("|"), [Token::Bar]);
     }
 
     #[test]

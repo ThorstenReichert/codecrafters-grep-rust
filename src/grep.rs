@@ -4,7 +4,6 @@ mod syntax;
 mod tokens;
 
 use std::ops::Deref;
-
 use str::StringUtils;
 use syntax::Syntax;
 
@@ -37,6 +36,10 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
 
         Syntax::ZeroOrMore { syntax: _ } => panic!(
             "Only one-character matching syntax expected here, but found zero or more quantifier"
+        ),
+
+        Syntax::Alternation { options: _ } => panic!(
+            "Only one-character matching syntax expected here, but found alternation quantifier"
         ),
     }
 }
@@ -80,6 +83,19 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
 
     if let Syntax::ZeroOrMore { syntax: s } = syntax {
         return match_at_least(text, &s.deref(), &pattern[1..], 0);
+    }
+
+    if let Syntax::Alternation { options: os } = syntax {
+        let pattern_remainder = &pattern[1..];
+
+        for option in os {
+            let pattern_option = [option, pattern_remainder].concat();
+            if match_here(text, &pattern_option) {
+                return true;
+            }    
+        }
+
+        return false;
     }
 
     if let Syntax::EndOfLineAnchor = syntax {
@@ -216,6 +232,13 @@ mod tests {
     fn test_match_pattern_wildcard() {
         assert!(match_pattern("dog", "d.g"));
         assert!(!match_pattern("cat", "d.g"));
+    }
+
+    #[test]
+    fn test_match_pattern_alternation() {
+        assert!(match_pattern("cat", "(cat|dog)"));
+        assert!(match_pattern("dog", "(cat|dog)"));
+        assert!(!match_pattern("apple", "(cat|dog)"));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use crate::grep::tokens::Token;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Syntax {
     /// Matches a single specified character.
     Literal { char: char },
@@ -10,6 +10,9 @@ pub enum Syntax {
 
     /// Matches a single word character. Equivalent to \[a-zA-Z0-9_\].
     Word,
+
+    /// Matches any single character.
+    Wildcard,
 
     /// Matches any one of the specified characters.
     CharacterClass { chars: Vec<char>, is_negated: bool },
@@ -26,8 +29,8 @@ pub enum Syntax {
     /// Matches the contained syntax zero or more times.
     ZeroOrMore { syntax: Box<Syntax> },
 
-    /// Matches any single character.
-    Wildcard,
+    /// Matches either of the contained syntax options.
+    Alternation { options: Vec<Vec<Syntax>> },
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -56,23 +59,35 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
         let prev_len = remainder.len();
 
         if remainder.starts_with(&[Token::OpenSquareBracket]) {
-            if let Some(end) = remainder
+            let Some(end) = remainder
                 .iter()
                 .position(|t| *t == Token::CloseSquareBracket)
-            {
-                let character_class = &pattern[1..end];
-                if character_class.starts_with(&[Token::Caret]) {
-                    let negated_character_class = &character_class[1..];
-
-                    syntax.push(into_character_class(negated_character_class, true));
-                    remainder = &remainder[end + 1..];
-                } else {
-                    syntax.push(into_character_class(character_class, false));
-                    remainder = &remainder[end + 1..];
-                }
-            } else {
+            else {
                 panic!("Incomplete character class (missing closing bracket)");
+            };
+
+            let character_class = &pattern[1..end];
+            if character_class.starts_with(&[Token::Caret]) {
+                let negated_character_class = &character_class[1..];
+
+                syntax.push(into_character_class(negated_character_class, true));
+                remainder = &remainder[end + 1..];
+            } else {
+                syntax.push(into_character_class(character_class, false));
+                remainder = &remainder[end + 1..];
             }
+        } else if remainder.starts_with(&[Token::OpenBracket]) {
+            let Some(end) = remainder.iter().position(|t| *t == Token::CloseBracket) else {
+                panic!("Incomplete alternation (missing closing bracket)");
+            };
+
+            let options: Vec<Vec<Syntax>> = pattern[1..end]
+                .split(|t| *t == Token::Bar)
+                .map(|o| parse_pattern(o))
+                .collect();
+
+            syntax.push(Syntax::Alternation { options: options });
+            remainder = &remainder[end + 1..]
         } else if remainder.starts_with(&[Token::Backslash, Token::Backslash]) {
             syntax.push(Syntax::Literal { char: '\\' });
             remainder = &remainder[2..]
@@ -226,5 +241,26 @@ mod tests {
     #[test]
     fn test_parse_pattern_wildcard() {
         assert_single(parse_pattern(&[Token::Dot]), Syntax::Wildcard);
+    }
+
+    #[test]
+    fn test_parse_pattern_alternation() {
+        assert_single(
+            parse_pattern(&[
+                Token::OpenBracket,
+                Token::Literal('a'),
+                Token::Backslash,
+                Token::Literal('d'),
+                Token::Bar,
+                Token::Literal('b'),
+                Token::CloseBracket,
+            ]),
+            Syntax::Alternation {
+                options: vec![
+                    vec![Syntax::Literal { char: 'a' }, Syntax::Digit],
+                    vec![Syntax::Literal { char: 'b' }],
+                ],
+            },
+        );
     }
 }
