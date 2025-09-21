@@ -3,6 +3,8 @@ mod str;
 mod syntax;
 mod tokens;
 
+use std::ops::Deref;
+
 use str::StringUtils;
 use syntax::Syntax;
 
@@ -19,10 +21,45 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
             chars: cs,
             is_negated: false,
         } => patterns::is_any_of(&cs, char),
-        Syntax::StartOfLineAnchor => {
-            panic!("Start of line anchor is only allowed at the start of the pattern")
+
+        Syntax::StartOfLineAnchor => panic!(
+            "Only one-character matching syntax expected here, but found start of line anchor"
+        ),
+
+        Syntax::EndOfLineAnchor => {
+            panic!("Only one-character matching syntax expected here, but found end of line anchor")
         }
-        Syntax::EndOfLineAnchor => false
+
+        Syntax::OneOrMore { syntax: _ } => panic!(
+            "Only one-character matching syntax expected here, but found one or more quantifier"
+        ),
+    }
+}
+
+fn match_at_least(text: &str, syntax: &Syntax, pattern_remainder: &[Syntax], count: usize) -> bool {
+    if let Syntax::OneOrMore { syntax: _ } = syntax {
+        panic!("Nested quantifiers are not supported");
+    }
+
+    if text.len() < count || !text.chars().take(count).all(|c| is_match(c, &syntax)) {
+        return false;
+    }
+
+    let mut text_remainder = &text[count..];
+    loop {
+        if match_here(text_remainder, pattern_remainder) {
+            return true;
+        }
+
+        let Some(c) = text_remainder.chars().next() else {
+            return false;
+        };
+
+        if !is_match(c, &syntax) {
+            return false;
+        }
+
+        text_remainder = &text_remainder[1..];
     }
 }
 
@@ -32,20 +69,16 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
         return true;
     };
 
-    let Some(c) = &text.chars().next() else {
-        // No more text, but still pattern left to match,
-        // return success if
-        //      - there is exactly one syntax-item left and
-        //      - it is the end of line anchor
+    if let Syntax::OneOrMore { syntax: s } = syntax {
+        return match_at_least(text, &s.deref(), &pattern[1..], 1);
+    }
 
-        return match pattern {
-            [Syntax::EndOfLineAnchor] => true,
-            _ => false,
-        };
-    };
+    if let Syntax::EndOfLineAnchor = syntax {
+        return pattern.len() == 1 && text.len() == 0;
+    }
 
-    if is_match(*c, syntax) {
-        return match_here(&text.slice(1..), &pattern[1..]);
+    if let Some(c) = text.chars().next() {
+        return is_match(c, syntax) && match_here(&text.slice(1..), &pattern[1..]);
     }
 
     return false;
@@ -151,9 +184,16 @@ mod tests {
     }
 
     #[test]
-    fn test_match_pattern_empty_anchors(){
+    fn test_match_pattern_empty_anchors() {
         assert!(match_pattern("", "^$"));
         assert!(!match_pattern("x", "^$"));
+    }
+
+    #[test]
+    fn test_match_pattern_one_or_more_quantifier() {
+        assert!(match_pattern("caats", "ca+ts"));
+        assert!(match_pattern("caaaaa", "ca+"));
+        assert!(!match_pattern("cts", "ca+ts"));
     }
 
     #[test]

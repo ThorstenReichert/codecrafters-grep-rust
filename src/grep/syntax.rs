@@ -19,6 +19,9 @@ pub enum Syntax {
 
     /// Matches the end of a line.
     EndOfLineAnchor,
+
+    /// Matches the contained syntax one or more times.
+    OneOrMore { syntax: Box<Syntax> },
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -75,6 +78,14 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
             remainder = &remainder[2..];
         } else if remainder.starts_with(&[Token::Dollar]) {
             syntax.push(Syntax::EndOfLineAnchor);
+            remainder = &remainder[1..];
+        } else if remainder.starts_with(&[Token::Plus]) {
+            let contained_syntax = syntax
+                .pop()
+                .expect("The one or more modifier can only appear after another token");
+            syntax.push(Syntax::OneOrMore {
+                syntax: Box::from(contained_syntax),
+            });
             remainder = &remainder[1..];
         } else if let Some(Token::Literal(c)) = remainder.get(0) {
             syntax.push(Syntax::Literal { char: *c });
@@ -173,5 +184,15 @@ mod tests {
     #[test]
     fn test_parse_pattern_end_of_line_anchor() {
         assert_single(parse_pattern(&[Token::Dollar]), Syntax::EndOfLineAnchor);
+    }
+
+    #[test]
+    fn test_parse_pattern_one_or_more_modifier() {
+        assert_single(
+            parse_pattern(&[Token::Literal('a'), Token::Plus]),
+            Syntax::OneOrMore {
+                syntax: Box::new(Syntax::Literal { char: 'a' }),
+            },
+        )
     }
 }
