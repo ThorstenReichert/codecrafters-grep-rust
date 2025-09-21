@@ -13,6 +13,9 @@ pub enum Syntax {
 
     /// Matches any one of the specified characters.
     CharacterClass { chars: Vec<char>, is_negated: bool },
+
+    /// Matches the start of a line.
+    StartOfLineAnchor,
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -31,6 +34,11 @@ pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
 pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
+
+    if remainder.starts_with(&[Token::Caret]) {
+        syntax.push(Syntax::StartOfLineAnchor);
+        remainder = &remainder[1..];
+    }
 
     while remainder.len() > 0 {
         let prev_len = remainder.len();
@@ -149,5 +157,10 @@ mod tests {
                 is_negated: true,
             },
         )
+    }
+
+    #[test]
+    fn test_parse_pattern_start_of_line_anchor() {
+        assert_single(parse_pattern(&[Token::Caret]), Syntax::StartOfLineAnchor);
     }
 }

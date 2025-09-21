@@ -19,6 +19,9 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
             chars: cs,
             is_negated: false,
         } => patterns::is_any_of(&cs, char),
+        Syntax::StartOfLineAnchor => {
+            panic!("Start of line anchor is only allowed at the start of the pattern")
+        }
     }
 }
 
@@ -43,6 +46,10 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
 pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     let tokens = tokens::tokenize_pattern(pattern);
     let syntax = syntax::parse_pattern(&tokens);
+
+    if let Some(Syntax::StartOfLineAnchor) = syntax.get(0) {
+        return match_here(input_line, &syntax[1..]);
+    }
 
     for start_index in 0..input_line.len() {
         if match_here(&input_line.slice(start_index..), &syntax) {
@@ -124,8 +131,17 @@ mod tests {
     }
 
     #[test]
+    fn test_match_pattern_start_of_line_anchor() {
+        assert!(match_pattern("log", "^log"));
+        assert!(!match_pattern("slog", "^log"));
+    }
+
+    #[test]
     fn test_match_pattern_regression_tests() {
         assert!(!match_pattern("×-+=÷%", "\\w"));
-        assert!(!match_pattern("sally has 12 apples", "\\d\\\\d\\\\d apples"));
+        assert!(!match_pattern(
+            "sally has 12 apples",
+            "\\d\\\\d\\\\d apples"
+        ));
     }
 }
