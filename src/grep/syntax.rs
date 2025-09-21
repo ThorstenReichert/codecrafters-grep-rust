@@ -66,7 +66,7 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
                 panic!("Incomplete character class (missing closing bracket)");
             };
 
-            let character_class = &pattern[1..end];
+            let character_class = &remainder[1..end];
             if character_class.starts_with(&[Token::Caret]) {
                 let negated_character_class = &character_class[1..];
 
@@ -81,7 +81,7 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
                 panic!("Incomplete alternation (missing closing bracket)");
             };
 
-            let options: Vec<Vec<Syntax>> = pattern[1..end]
+            let options: Vec<Vec<Syntax>> = remainder[1..end]
                 .split(|t| *t == Token::Bar)
                 .map(|o| parse_pattern(o))
                 .collect();

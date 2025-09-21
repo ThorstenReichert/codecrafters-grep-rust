@@ -248,6 +248,7 @@ mod tests {
             "sally has 12 apples",
             "\\d\\\\d\\\\d apples"
         ));
-        assert!(match_pattern("goøö0Ogol", "g.+gol"))
+        assert!(match_pattern("goøö0Ogol", "g.+gol"));
+        assert!(match_pattern("a cat", "a (cat|dog)"));
     }
 }
