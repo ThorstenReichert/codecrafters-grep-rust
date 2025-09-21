@@ -16,10 +16,16 @@ pub enum Syntax {
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
-    Syntax::CharacterClass { chars: tokens.iter().map(|t| match t {
-        Token::Literal(c) => *c,
-        other => panic!("Invalid token '{}' in character class", other)
-    }).collect(), is_negated: is_negated }
+    Syntax::CharacterClass {
+        chars: tokens
+            .iter()
+            .map(|t| match t {
+                Token::Literal(c) => *c,
+                other => panic!("Invalid token '{}' in character class", other),
+            })
+            .collect(),
+        is_negated: is_negated,
+    }
 }
 
 pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
@@ -47,6 +53,9 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
             } else {
                 panic!("Incomplete character class (missing closing bracket)");
             }
+        } else if remainder.starts_with(&[Token::Backslash, Token::Backslash]) {
+            syntax.push(Syntax::Literal { char: '\\' });
+            remainder = &remainder[2..]
         } else if remainder.starts_with(&[Token::Backslash, Token::Literal('d')]) {
             syntax.push(Syntax::Digit);
             remainder = &remainder[2..];

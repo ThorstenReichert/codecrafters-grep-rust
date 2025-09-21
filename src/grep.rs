@@ -125,6 +125,7 @@ mod tests {
 
     #[test]
     fn test_match_pattern_regression_tests() {
-        assert!(!match_pattern("×-+=÷%", "\\w"))
+        assert!(!match_pattern("×-+=÷%", "\\w"));
+        assert!(!match_pattern("sally has 12 apples", "\\d\\\\d\\\\d apples"));
     }
 }
