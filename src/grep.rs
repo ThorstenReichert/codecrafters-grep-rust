@@ -22,6 +22,7 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
         Syntax::StartOfLineAnchor => {
             panic!("Start of line anchor is only allowed at the start of the pattern")
         }
+        Syntax::EndOfLineAnchor => false
     }
 }
 
@@ -32,8 +33,15 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
     };
 
     let Some(c) = &text.chars().next() else {
-        // No more text, but still pattern left to match, return non-success.
-        return false;
+        // No more text, but still pattern left to match,
+        // return success if
+        //      - there is exactly one syntax-item left and
+        //      - it is the end of line anchor
+
+        return match pattern {
+            [Syntax::EndOfLineAnchor] => true,
+            _ => false,
+        };
     };
 
     if is_match(*c, syntax) {
@@ -134,6 +142,18 @@ mod tests {
     fn test_match_pattern_start_of_line_anchor() {
         assert!(match_pattern("log", "^log"));
         assert!(!match_pattern("slog", "^log"));
+    }
+
+    #[test]
+    fn test_match_pattern_end_of_line_anchor() {
+        assert!(match_pattern("dog", "dog$"));
+        assert!(!match_pattern("dogs", "dog$"));
+    }
+
+    #[test]
+    fn test_match_pattern_empty_anchors(){
+        assert!(match_pattern("", "^$"));
+        assert!(!match_pattern("x", "^$"));
     }
 
     #[test]

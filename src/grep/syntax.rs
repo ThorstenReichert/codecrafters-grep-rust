@@ -16,6 +16,9 @@ pub enum Syntax {
 
     /// Matches the start of a line.
     StartOfLineAnchor,
+
+    /// Matches the end of a line.
+    EndOfLineAnchor,
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -70,6 +73,9 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
         } else if remainder.starts_with(&[Token::Backslash, Token::Literal('w')]) {
             syntax.push(Syntax::Word);
             remainder = &remainder[2..];
+        } else if remainder.starts_with(&[Token::Dollar]) {
+            syntax.push(Syntax::EndOfLineAnchor);
+            remainder = &remainder[1..];
         } else if let Some(Token::Literal(c)) = remainder.get(0) {
             syntax.push(Syntax::Literal { char: *c });
             remainder = &remainder[1..];
@@ -162,5 +168,10 @@ mod tests {
     #[test]
     fn test_parse_pattern_start_of_line_anchor() {
         assert_single(parse_pattern(&[Token::Caret]), Syntax::StartOfLineAnchor);
+    }
+
+    #[test]
+    fn test_parse_pattern_end_of_line_anchor() {
+        assert_single(parse_pattern(&[Token::Dollar]), Syntax::EndOfLineAnchor);
     }
 }

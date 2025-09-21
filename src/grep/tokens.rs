@@ -7,6 +7,7 @@ pub enum Token {
     OpenSquareBracket,
     CloseSquareBracket,
     Caret,
+    Dollar
 }
 
 pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
@@ -17,6 +18,7 @@ pub fn tokenize_pattern(pattern: &str) -> Vec<Token> {
             '[' => Token::OpenSquareBracket,
             ']' => Token::CloseSquareBracket,
             '^' => Token::Caret,
+            '$' => Token::Dollar,
             other => Token::Literal(other),
         })
         .collect()
@@ -29,6 +31,7 @@ impl fmt::Display for Token {
             Token::OpenSquareBracket => write!(f, "["),
             Token::CloseSquareBracket => write!(f, "]"),
             Token::Caret => write!(f, "^"),
+            Token::Dollar => write!(f, "$"),
             Token::Literal(c) => write!(f, "{}", c)
         }
     }
@@ -56,6 +59,11 @@ mod tests {
     #[test]
     fn test_tokenize_pattern_caret() {
         assert_eq!(tokenize_pattern("^"), [Token::Caret])
+    }
+
+    #[test]
+    fn test_tokenize_pattern_dollar() {
+        assert_eq!(tokenize_pattern("$"), [Token::Dollar]);
     }
 
     #[test]
