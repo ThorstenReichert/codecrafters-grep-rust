@@ -50,7 +50,7 @@ fn match_at_least(text: &str, syntax: &Syntax, pattern_remainder: &[Syntax], cou
         return false;
     }
 
-    let mut text_remainder = &text[count..];
+    let mut text_remainder = text.slice(count..);
     loop {
         if match_here(text_remainder, pattern_remainder) {
             return true;
@@ -64,7 +64,7 @@ fn match_at_least(text: &str, syntax: &Syntax, pattern_remainder: &[Syntax], cou
             return false;
         }
 
-        text_remainder = &text_remainder[1..];
+        text_remainder = &text_remainder.slice(1..);
     }
 }
 
@@ -225,5 +225,6 @@ mod tests {
             "sally has 12 apples",
             "\\d\\\\d\\\\d apples"
         ));
+        assert!(match_pattern("goøö0Ogol", "g.+gol"))
     }
 }
