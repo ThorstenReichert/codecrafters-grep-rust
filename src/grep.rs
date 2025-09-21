@@ -1,6 +1,8 @@
-pub mod patterns;
-pub mod syntax;
+mod patterns;
+mod str;
+mod syntax;
 
+use str::StringUtils;
 use syntax::Syntax;
 
 fn is_match(char: char, pattern: &Syntax) -> bool {
@@ -31,7 +33,7 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
     };
 
     if is_match(*c, syntax) {
-        return match_here(&text[1..], &pattern[1..])
+        return match_here(&text.slice(1..), &pattern[1..]);
     }
 
     return false;
@@ -41,7 +43,7 @@ pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     let syntax = syntax::parse_pattern(pattern);
 
     for start_index in 0..input_line.len() {
-        if match_here(&input_line[start_index..], &syntax) {
+        if match_here(&input_line.slice(start_index..), &syntax) {
             return true;
         }
     }
@@ -113,9 +115,14 @@ mod tests {
 
         assert!(match_pattern("100 apples", "\\d\\d\\d apple"));
         assert!(!match_pattern("1 apple", "\\d\\d\\d apple"));
-        
+
         assert!(match_pattern("3 dogs", "\\d \\w\\w\\ws"));
         assert!(match_pattern("4 cats", "\\d \\w\\w\\ws"));
         assert!(!match_pattern("1 dog", "\\d \\w\\w\\ws"));
+    }
+
+    #[test]
+    fn test_match_pattern_regression_tests() {
+        assert!(!match_pattern("×-+=÷%", "\\w"))
     }
 }

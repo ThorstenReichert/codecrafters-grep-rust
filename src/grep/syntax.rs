@@ -1,3 +1,5 @@
+use super::str::StringUtils;
+
 #[derive(Debug, PartialEq)]
 pub enum Syntax {
     /// Matches a single specified character.
@@ -22,7 +24,7 @@ pub fn parse_pattern(pattern: &str) -> Vec<Syntax> {
 
         if remainder.starts_with('[') {
             if let Some(end) = remainder.find(']') {
-                let character_class = &pattern[1..end];
+                let character_class = &pattern.slice(1..end);
                 if character_class.starts_with('^') {
                     let negated_character_class = &character_class[1..];
 
@@ -30,13 +32,13 @@ pub fn parse_pattern(pattern: &str) -> Vec<Syntax> {
                         chars: negated_character_class.chars().collect(),
                         is_negated: true,
                     });
-                    remainder = &remainder[end + 1..];
+                    remainder = &remainder.slice(end + 1..);
                 } else {
                     syntax.push(Syntax::CharacterClass {
                         chars: character_class.chars().collect(),
                         is_negated: false,
                     });
-                    remainder = &remainder[end + 1..];
+                    remainder = &remainder.slice(end + 1..);
                 }
             } else {
                 panic!(
@@ -46,15 +48,15 @@ pub fn parse_pattern(pattern: &str) -> Vec<Syntax> {
             }
         } else if remainder.starts_with("\\d") {
             syntax.push(Syntax::Digit);
-            remainder = &remainder[2..];
+            remainder = &remainder.slice(2..);
         } else if remainder.starts_with("\\w") {
             syntax.push(Syntax::Word);
-            remainder = &remainder[2..];
+            remainder = &remainder.slice(2..);
         } else {
             syntax.push(Syntax::Literal {
                 char: remainder.chars().next().unwrap(),
             });
-            remainder = &remainder[1..];
+            remainder = &remainder.slice(1..);
         }
 
         // Sanity check to ensure that progress is made.
