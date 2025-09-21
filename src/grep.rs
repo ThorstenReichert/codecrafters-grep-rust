@@ -41,7 +41,7 @@ fn match_at_least(text: &str, syntax: &Syntax, pattern_remainder: &[Syntax], cou
         panic!("Nested quantifiers are not supported");
     }
 
-    if text.len() < count || !text.chars().take(count).all(|c| is_match(c, &syntax)) {
+    if text.len() < count || text.chars().take(count).any(|c| !is_match(c, &syntax)) {
         return false;
     }
 
