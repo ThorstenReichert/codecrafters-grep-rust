@@ -33,6 +33,10 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
         Syntax::OneOrMore { syntax: _ } => panic!(
             "Only one-character matching syntax expected here, but found one or more quantifier"
         ),
+
+        Syntax::ZeroOrMore { syntax: _ } => panic!(
+            "Only one-character matching syntax expected here, but found zero or more quantifier"
+        ),
     }
 }
 
@@ -71,6 +75,10 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
 
     if let Syntax::OneOrMore { syntax: s } = syntax {
         return match_at_least(text, &s.deref(), &pattern[1..], 1);
+    }
+
+    if let Syntax::ZeroOrMore { syntax: s } = syntax {
+        return match_at_least(text, &s.deref(), &pattern[1..], 0);
     }
 
     if let Syntax::EndOfLineAnchor = syntax {
@@ -194,6 +202,13 @@ mod tests {
         assert!(match_pattern("caats", "ca+ts"));
         assert!(match_pattern("caaaaa", "ca+"));
         assert!(!match_pattern("cts", "ca+ts"));
+    }
+
+    #[test]
+    fn test_match_pattern_zero_or_more_quantifier() {
+        assert!(match_pattern("dogs", "dogs?"));
+        assert!(match_pattern("dog", "dogs?"));
+        assert!(!match_pattern("cat", "dogs?"));
     }
 
     #[test]

@@ -22,6 +22,9 @@ pub enum Syntax {
 
     /// Matches the contained syntax one or more times.
     OneOrMore { syntax: Box<Syntax> },
+
+    /// Matches the contained syntax zero or more times.
+    ZeroOrMore { syntax: Box<Syntax> }
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -84,6 +87,14 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
                 .pop()
                 .expect("The one or more modifier can only appear after another token");
             syntax.push(Syntax::OneOrMore {
+                syntax: Box::from(contained_syntax),
+            });
+            remainder = &remainder[1..];
+        } else if remainder.starts_with(&[Token::QuestionMark]) {
+            let contained_syntax = syntax
+                .pop()
+                .expect("The zero or more modifier can only appear after another token");
+            syntax.push(Syntax::ZeroOrMore {
                 syntax: Box::from(contained_syntax),
             });
             remainder = &remainder[1..];
@@ -191,6 +202,16 @@ mod tests {
         assert_single(
             parse_pattern(&[Token::Literal('a'), Token::Plus]),
             Syntax::OneOrMore {
+                syntax: Box::new(Syntax::Literal { char: 'a' }),
+            },
+        )
+    }
+
+    #[test]
+    fn test_parse_pattern_zero_or_more_modifier() {
+        assert_single(
+            parse_pattern(&[Token::Literal('a'), Token::QuestionMark]),
+            Syntax::ZeroOrMore {
                 syntax: Box::new(Syntax::Literal { char: 'a' }),
             },
         )
