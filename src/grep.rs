@@ -23,8 +23,11 @@ impl Match {
         Match { text: vec![text] }
     }
 
+    fn from_str(text: &str) -> Match {
+        Match { text: text.chars().collect() }
+    }
+
     /// Merges two Matches, creating a new instance.
-    #[inline(never)]
     fn merge(head: Match, tail: Match) -> Match {
         Match {
             text: [head.text, tail.text].concat(),
@@ -69,8 +72,12 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
         ),
 
         Syntax::CaptureGroup { .. } => panic!(
-            "Only one-character matching syntax expected here, but found alternation quantifier"
+            "Only one-character matching syntax expected here, but found capture group quantifier"
         ),
+
+        Syntax::CaptureGroupEnd { .. } => {
+            panic!("Only one-character matching syntax expected here, but found capture group end")
+        }
 
         Syntax::BackReference { .. } => {
             panic!("Only one-character matching syntax expected here, but found backreference")
@@ -136,30 +143,80 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
         let pattern_remainder = &pattern[1..];
 
         for option in os {
-            let Some(match_option) = match_here(&text, option, cgroups) else {
-                continue;
+            let end = Syntax::CaptureGroupEnd {
+                text: text.chars().collect(),
+                id: *id,
             };
+            let pattern_total = [option.as_slice(), &[end], pattern_remainder].concat();
 
-            let None = cgroups.insert(*id, match_option.clone()) else {
-                panic!("Duplicate capture group result '{}'", id)
-            };
-
-            if let Some(match_remainder) = match_here(
-                &text.slice(match_option.text.len()..),
-                pattern_remainder,
-                cgroups,
-            ) {
-                return Some(Match::merge(match_option, match_remainder));
-            } else {
-                // If the remainder does not match, we continue with the next option,
-                // but the capture group result has to be discarded again.
-                let Some(_) = cgroups.remove(id) else {
-                    panic!("Unable to find capture group result '{}'", id);
-                };
+            if let Some(match_total) = match_here(text, &pattern_total, cgroups) {
+                return Some(match_total);
             }
+
+            // let Some(match_option) = match_here(&text, option, cgroups) else {
+            //     continue;
+            // };
+
+            // let None = cgroups.insert(*id, match_option.clone()) else {
+            //     panic!("Duplicate capture group result '{}'", id)
+            // };
+
+            // if let Some(match_remainder) = match_here(
+            //     &text.slice(match_option.text.len()..),
+            //     pattern_remainder,
+            //     cgroups,
+            // ) {
+            //     return Some(Match::merge(match_option, match_remainder));
+            // } else {
+            //     // If the remainder does not match, we continue with the next option,
+            //     // but the capture group result has to be discarded again.
+            //     let Some(_) = cgroups.remove(id) else {
+            //         panic!("Unable to find capture group result '{}'", id);
+            //     };
+            // }
         }
 
         return None;
+    }
+
+    if let Syntax::CaptureGroupEnd { text: text_original, id } = syntax {
+        let match_len = text_original.len() - text.len();
+        let match_group = Match::from_str(text_original.slice(..match_len));
+
+        let None = cgroups.insert(*id, match_group) else {
+            panic!("Duplicate capture group result '{}'", id);
+        };
+
+        if let Some(match_remainder) = match_here(text, &pattern[1..], cgroups) {
+            return Some(match_remainder);
+        } else {
+            // If the remainder does not match, we continue with the next option,
+            // but the capture group result has to be discarded again.
+            // Ignore the result here, since the capture group matching might or 
+            // might not have been successful.
+            cgroups.remove(id).expect("Unable to remove capture group");
+            return None;
+        }
+    }
+
+    if let Syntax::BackReference { id } = syntax {
+        let Some(match_original) = cgroups.get(id) else {
+            panic!("No capture group with id '{}' has been matched yet", id);
+        };
+
+        let search_string: String = match_original.text.iter().collect();
+        if text.starts_with(search_string.as_str()) {
+            let match_ref = match_original.clone();
+            let match_remainder = match_here(
+                text.slice(match_original.text.len()..),
+                &pattern[1..],
+                cgroups,
+            )?;
+
+            return Some(Match::merge(match_ref, match_remainder));
+        } else {
+            return None;
+        }
     }
 
     if let Syntax::EndOfLineAnchor = syntax {
@@ -314,6 +371,15 @@ mod tests {
         assert!(match_pattern("cat", "(cat|dog)"));
         assert!(match_pattern("dog", "(cat|dog)"));
         assert!(!match_pattern("apple", "(cat|dog)"));
+    }
+
+    #[test]
+    fn test_match_pattern_backreference() {
+        assert!(match_pattern("cat and cat", "(cat) and \\1"));
+        assert!(!match_pattern("cat and dog", "(cat) and \\1"));
+        assert!(match_pattern("cat and cat", "(\\w+) and \\1"));
+        assert!(match_pattern("dog and dog", "(\\w+) and \\1"));
+        assert!(!match_pattern("cat and dog", "(\\w+) and \\1"));
     }
 
     #[test]

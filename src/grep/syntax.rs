@@ -32,8 +32,11 @@ pub enum Syntax {
     /// Matches either of the contained syntax options.
     CaptureGroup { options: Vec<Vec<Syntax>>, id: u32 },
 
+    /// Artificial syntax to finalize capture groups.
+    CaptureGroupEnd { text: String, id: u32 },
+
     /// References an already matched capture group by id.
-    BackReference { id: u32 }
+    BackReference { id: u32 },
 }
 
 fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
