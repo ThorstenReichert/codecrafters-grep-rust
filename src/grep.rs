@@ -7,6 +7,7 @@ use std::{collections::HashMap, ops::Deref};
 use str::StringUtils;
 use syntax::Syntax;
 
+#[derive(Clone, Debug)]
 struct Match {
     text: Vec<char>,
 }
@@ -131,20 +132,31 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
         return match_star(text, &s.deref(), &pattern[1..], cgroups);
     }
 
-    if let Syntax::CaptureGroup { options: os, id: _ } = syntax {
+    if let Syntax::CaptureGroup { options: os, id } = syntax {
         let pattern_remainder = &pattern[1..];
 
         for option in os {
             let Some(match_option) = match_here(&text, option, cgroups) else {
                 continue;
             };
+
+            let None = cgroups.insert(*id, match_option.clone()) else {
+                panic!("Duplicate capture group result '{}'", id)
+            };
+
             if let Some(match_remainder) = match_here(
                 &text.slice(match_option.text.len()..),
                 pattern_remainder,
                 cgroups,
             ) {
                 return Some(Match::merge(match_option, match_remainder));
-            };
+            } else {
+                // If the remainder does not match, we continue with the next option,
+                // but the capture group result has to be discarded again.
+                let Some(_) = cgroups.remove(id) else {
+                    panic!("Unable to find capture group result '{}'", id);
+                };
+            }
         }
 
         return None;
