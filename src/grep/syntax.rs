@@ -27,7 +27,7 @@ pub enum Syntax {
     OneOrMore { syntax: Box<Syntax> },
 
     /// Matches the contained syntax zero or more times.
-    ZeroOrMore { syntax: Box<Syntax> },
+    ZeroOrOne { syntax: Box<Syntax> },
 
     /// Matches either of the contained syntax options.
     CaptureGroup { options: Vec<Vec<Syntax>>, id: u32 },
@@ -141,7 +141,7 @@ fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Synt
             let contained_syntax = syntax
                 .pop()
                 .expect("The zero or more modifier can only appear after another token");
-            syntax.push(Syntax::ZeroOrMore {
+            syntax.push(Syntax::ZeroOrOne {
                 syntax: Box::from(contained_syntax),
             });
             remainder = &remainder[1..];
@@ -263,7 +263,7 @@ mod tests {
     fn test_parse_pattern_zero_or_more_modifier() {
         assert_single(
             parse_pattern(&[Token::Literal('a'), Token::QuestionMark]),
-            Syntax::ZeroOrMore {
+            Syntax::ZeroOrOne {
                 syntax: Box::new(Syntax::Literal { char: 'a' }),
             },
         )

@@ -24,7 +24,9 @@ impl Match {
     }
 
     fn from_str(text: &str) -> Match {
-        Match { text: text.chars().collect() }
+        Match {
+            text: text.chars().collect(),
+        }
     }
 
     /// Merges two Matches, creating a new instance.
@@ -67,7 +69,7 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
             "Only one-character matching syntax expected here, but found one or more quantifier"
         ),
 
-        Syntax::ZeroOrMore { .. } => panic!(
+        Syntax::ZeroOrOne { .. } => panic!(
             "Only one-character matching syntax expected here, but found zero or more quantifier"
         ),
 
@@ -97,10 +99,6 @@ fn match_star(
     remainder: &[Syntax],
     cgroups: &mut HashMap<u32, Match>,
 ) -> Option<Match> {
-    if let Syntax::OneOrMore { syntax: _ } = syntax {
-        panic!("Nested quantifiers are not supported");
-    }
-
     let mut match_head = Match::empty();
     let mut text_remainder = text;
     loop {
@@ -115,6 +113,21 @@ fn match_star(
         match_head.merge_with(match_char);
         text_remainder = &text_remainder.slice(1..);
     }
+}
+
+fn match_question_mark(
+    text: &str,
+    syntax: &Syntax
+) -> Option<Match> {
+    let Some(char) = text.chars().next() else {
+        return Some(Match::empty());
+    };
+
+    let Some(match_once) = is_match(char, syntax) else {
+        return Some(Match::empty());
+    };
+
+    return Some(match_once);
 }
 
 fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>) -> Option<Match> {
@@ -135,8 +148,8 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
         return Some(Match::merge(match_head, match_tail));
     }
 
-    if let Syntax::ZeroOrMore { syntax: s } = syntax {
-        return match_star(text, &s.deref(), &pattern[1..], cgroups);
+    if let Syntax::ZeroOrOne { syntax: s } = syntax {
+        return match_question_mark(text, &s.deref());
     }
 
     if let Syntax::CaptureGroup { options: os, id } = syntax {
@@ -157,7 +170,11 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
         return None;
     }
 
-    if let Syntax::CaptureGroupEnd { text: text_original, id } = syntax {
+    if let Syntax::CaptureGroupEnd {
+        text: text_original,
+        id,
+    } = syntax
+    {
         let match_len = text_original.len() - text.len();
         let match_group = Match::from_str(text_original.slice(..match_len));
 
@@ -170,7 +187,7 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
         } else {
             // If the remainder does not match, we continue with the next option,
             // but the capture group result has to be discarded again.
-            // Ignore the result here, since the capture group matching might or 
+            // Ignore the result here, since the capture group matching might or
             // might not have been successful.
             cgroups.remove(id).expect("Unable to remove capture group");
             return None;
