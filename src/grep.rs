@@ -148,10 +148,14 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
         let pattern_remainder = &pattern[1..];
 
         for option in os {
-            let pattern_option = [option, pattern_remainder].concat();
-            if let Some(match_option) = match_here(text, &pattern_option) {
-                return Some(match_option);
-            }
+            let Some(match_option) = match_here(&text, option) else {
+                continue;
+            };
+            if let Some(match_remainder) =
+                match_here(&text.slice(match_option.text.len()..), pattern_remainder)
+            {
+                return Some(Match::merge(match_option, match_remainder));
+            };
         }
 
         return None;
