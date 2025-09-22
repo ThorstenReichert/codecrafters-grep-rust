@@ -30,10 +30,13 @@ pub enum Syntax {
     ZeroOrMore { syntax: Box<Syntax> },
 
     /// Matches either of the contained syntax options.
-    CaptureGroup { options: Vec<Vec<Syntax>>, id: i32 },
+    CaptureGroup { options: Vec<Vec<Syntax>>, id: u32 },
+
+    /// References an already matched capture group by id.
+    BackReference { id: u32 }
 }
 
-pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
+fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
     Syntax::CharacterClass {
         chars: tokens
             .iter()
@@ -46,7 +49,7 @@ pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
     }
 }
 
-fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut i32) -> Vec<Syntax> {
+fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
 
@@ -102,6 +105,21 @@ fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut i32) -> Vec<Synt
         } else if remainder.starts_with(&[Token::Backslash, Token::Literal('w')]) {
             syntax.push(Syntax::Word);
             remainder = &remainder[2..];
+        } else if remainder.starts_with(&[Token::Backslash]) {
+            let Some(escapee) = remainder.get(1) else {
+                panic!("Incomplete escape sequence");
+            };
+
+            if let Token::Literal(l) = escapee {
+                if let Some(d) = char::to_digit(*l, 10) {
+                    syntax.push(Syntax::BackReference { id: d });
+                    remainder = &remainder[2..];
+                } else {
+                    panic!("Unrecognized escape sequence '\\{}'", l);
+                }
+            } else {
+                panic!("Unrecognized token type following backslash");
+            }
         } else if remainder.starts_with(&[Token::Dot]) {
             syntax.push(Syntax::Wildcard);
             remainder = &remainder[1..];
@@ -300,5 +318,13 @@ mod tests {
                 id: 2
             }
         );
+    }
+
+    #[test]
+    fn test_parse_pattern_backreference() {
+        assert_single(
+            parse_pattern(&[Token::Backslash, Token::Literal('1')]),
+            Syntax::BackReference { id: 1 },
+        )
     }
 }

@@ -22,13 +22,6 @@ impl Match {
         Match { text: vec![text] }
     }
 
-    /// Creates a Match from a section of text that repeatedly matched the same single syntax item.
-    fn from_str(text: &str) -> Match {
-        Match {
-            text: text.chars().collect(),
-        }
-    }
-
     /// Merges two Matches, creating a new instance.
     #[inline(never)]
     fn merge(head: Match, tail: Match) -> Match {
@@ -77,6 +70,10 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
         Syntax::CaptureGroup { .. } => panic!(
             "Only one-character matching syntax expected here, but found alternation quantifier"
         ),
+
+        Syntax::BackReference { .. } => {
+            panic!("Only one-character matching syntax expected here, but found backreference")
+        }
     };
 
     if is_match {
@@ -86,38 +83,15 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
     }
 }
 
-fn match_exactly(text: &str, syntax: &Syntax, count: usize) -> Option<Match> {
-    if text.len() < count {
-        return None;
-    }
-
-    for c in text.chars().take(count) {
-        let Some(_) = is_match(c, syntax) else {
-            return None;
-        };
-    }
-
-    Some(Match::from_str(&text.slice(0..count)))
-}
-
-fn match_at_least(
-    text: &str,
-    syntax: &Syntax,
-    pattern_remainder: &[Syntax],
-    count: usize,
-) -> Option<Match> {
+fn match_star(text: &str,syntax: &Syntax, remainder: &[Syntax]) -> Option<Match> {
     if let Syntax::OneOrMore { syntax: _ } = syntax {
         panic!("Nested quantifiers are not supported");
     }
 
-    let Some(match_prefix) = match_exactly(text, syntax, count) else {
-        return None;
-    };
-
-    let mut match_head = match_prefix;
-    let mut text_remainder = text.slice(count..);
+    let mut match_head = Match::empty();
+    let mut text_remainder = text;
     loop {
-        if let Some(match_tail) = match_here(text_remainder, pattern_remainder) {
+        if let Some(match_tail) = match_here(text_remainder, remainder) {
             match_head.merge_with(match_tail);
             return Some(match_head);
         };
@@ -137,11 +111,14 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
     };
 
     if let Syntax::OneOrMore { syntax: s } = syntax {
-        return match_at_least(text, &s.deref(), &pattern[1..], 1);
+        let match_head = match_here(text, &[(**s).clone()])?;
+        let match_tail = match_star(text.slice(match_head.text.len()..), s, &pattern[1..])?;
+
+        return Some(Match::merge(match_head, match_tail));
     }
 
     if let Syntax::ZeroOrMore { syntax: s } = syntax {
-        return match_at_least(text, &s.deref(), &pattern[1..], 0);
+        return match_star(text, &s.deref(), &pattern[1..]);
     }
 
     if let Syntax::CaptureGroup { options: os, id: _ } = syntax {
