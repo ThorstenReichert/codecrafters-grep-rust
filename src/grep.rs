@@ -3,7 +3,7 @@ mod str;
 mod syntax;
 mod tokens;
 
-use std::ops::Deref;
+use std::{collections::HashMap, ops::Deref};
 use str::StringUtils;
 use syntax::Syntax;
 
@@ -83,7 +83,12 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
     }
 }
 
-fn match_star(text: &str,syntax: &Syntax, remainder: &[Syntax]) -> Option<Match> {
+fn match_star(
+    text: &str,
+    syntax: &Syntax,
+    remainder: &[Syntax],
+    cgroups: &mut HashMap<u32, Match>,
+) -> Option<Match> {
     if let Syntax::OneOrMore { syntax: _ } = syntax {
         panic!("Nested quantifiers are not supported");
     }
@@ -91,7 +96,7 @@ fn match_star(text: &str,syntax: &Syntax, remainder: &[Syntax]) -> Option<Match>
     let mut match_head = Match::empty();
     let mut text_remainder = text;
     loop {
-        if let Some(match_tail) = match_here(text_remainder, remainder) {
+        if let Some(match_tail) = match_here(text_remainder, remainder, cgroups) {
             match_head.merge_with(match_tail);
             return Some(match_head);
         };
@@ -104,33 +109,40 @@ fn match_star(text: &str,syntax: &Syntax, remainder: &[Syntax]) -> Option<Match>
     }
 }
 
-fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
+fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>) -> Option<Match> {
     let Some(syntax) = pattern.get(0) else {
         // The entire pattern matched, return success.
         return Some(Match::empty());
     };
 
     if let Syntax::OneOrMore { syntax: s } = syntax {
-        let match_head = match_here(text, &[(**s).clone()])?;
-        let match_tail = match_star(text.slice(match_head.text.len()..), s, &pattern[1..])?;
+        let match_head = match_here(text, &[(**s).clone()], cgroups)?;
+        let match_tail = match_star(
+            text.slice(match_head.text.len()..),
+            s,
+            &pattern[1..],
+            cgroups,
+        )?;
 
         return Some(Match::merge(match_head, match_tail));
     }
 
     if let Syntax::ZeroOrMore { syntax: s } = syntax {
-        return match_star(text, &s.deref(), &pattern[1..]);
+        return match_star(text, &s.deref(), &pattern[1..], cgroups);
     }
 
     if let Syntax::CaptureGroup { options: os, id: _ } = syntax {
         let pattern_remainder = &pattern[1..];
 
         for option in os {
-            let Some(match_option) = match_here(&text, option) else {
+            let Some(match_option) = match_here(&text, option, cgroups) else {
                 continue;
             };
-            if let Some(match_remainder) =
-                match_here(&text.slice(match_option.text.len()..), pattern_remainder)
-            {
+            if let Some(match_remainder) = match_here(
+                &text.slice(match_option.text.len()..),
+                pattern_remainder,
+                cgroups,
+            ) {
                 return Some(Match::merge(match_option, match_remainder));
             };
         }
@@ -144,7 +156,7 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
 
     if let Some(c) = text.chars().next() {
         let match_char = is_match(c, syntax)?;
-        let match_remainder = match_here(&text.slice(1..), &pattern[1..])?;
+        let match_remainder = match_here(&text.slice(1..), &pattern[1..], cgroups)?;
 
         return Some(Match::merge(match_char, match_remainder));
     }
@@ -155,16 +167,21 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
 pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     let tokens = tokens::tokenize_pattern(pattern);
     let syntax = syntax::parse_pattern(&tokens);
+    let mut capture_groups = HashMap::new();
 
     if let Some(Syntax::StartOfLineAnchor) = syntax.get(0) {
-        return match match_here(input_line, &syntax[1..]) {
+        return match match_here(input_line, &syntax[1..], &mut capture_groups) {
             Some(_) => true,
             None => false,
         };
     }
 
     for start_index in 0..input_line.len() {
-        if let Some(_) = match_here(&input_line.slice(start_index..), &syntax) {
+        if let Some(_) = match_here(
+            &input_line.slice(start_index..),
+            &syntax,
+            &mut capture_groups,
+        ) {
             return true;
         }
     }
