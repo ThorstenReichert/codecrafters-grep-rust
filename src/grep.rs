@@ -376,6 +376,8 @@ mod tests {
         assert!(match_pattern("cat and cat", "(\\w+) and \\1"));
         assert!(match_pattern("dog and dog", "(\\w+) and \\1"));
         assert!(!match_pattern("cat and dog", "(\\w+) and \\1"));
+        assert!(match_pattern("3 red squares and 3 red circles", "(\\d+) (\\w+) squares and \\1 \\2 circles"));
+        assert!(!match_pattern("3 red squares and 4 red circles", "(\\d+) (\\w+) squares and \\1 \\2 circles"));
     }
 
     #[test]
