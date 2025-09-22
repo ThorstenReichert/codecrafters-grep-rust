@@ -66,15 +66,15 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
             panic!("Only one-character matching syntax expected here, but found end of line anchor")
         }
 
-        Syntax::OneOrMore { syntax: _ } => panic!(
+        Syntax::OneOrMore { .. } => panic!(
             "Only one-character matching syntax expected here, but found one or more quantifier"
         ),
 
-        Syntax::ZeroOrMore { syntax: _ } => panic!(
+        Syntax::ZeroOrMore { .. } => panic!(
             "Only one-character matching syntax expected here, but found zero or more quantifier"
         ),
 
-        Syntax::CaptureGroup { options: _ } => panic!(
+        Syntax::CaptureGroup { .. } => panic!(
             "Only one-character matching syntax expected here, but found alternation quantifier"
         ),
     };
@@ -144,7 +144,7 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
         return match_at_least(text, &s.deref(), &pattern[1..], 0);
     }
 
-    if let Syntax::CaptureGroup { options: os } = syntax {
+    if let Syntax::CaptureGroup { options: os, id: _ } = syntax {
         let pattern_remainder = &pattern[1..];
 
         for option in os {

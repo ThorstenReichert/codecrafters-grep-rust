@@ -30,7 +30,7 @@ pub enum Syntax {
     ZeroOrMore { syntax: Box<Syntax> },
 
     /// Matches either of the contained syntax options.
-    CaptureGroup { options: Vec<Vec<Syntax>> },
+    CaptureGroup { options: Vec<Vec<Syntax>>, id: i32 },
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -46,7 +46,7 @@ pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
     }
 }
 
-pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
+fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut i32) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
 
@@ -81,16 +81,21 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
                 panic!("Incomplete alternation (missing closing bracket)");
             };
 
+            *capture_group_id += 1;
+            let id = *capture_group_id;
             let options: Vec<Vec<Syntax>> = remainder[1..end]
                 .split(|t| *t == Token::Bar)
-                .map(|o| parse_pattern(o))
+                .map(|o| parse_pattern_core(o, capture_group_id))
                 .collect();
 
-            syntax.push(Syntax::CaptureGroup { options: options });
-            remainder = &remainder[end + 1..]
+            syntax.push(Syntax::CaptureGroup {
+                options: options,
+                id: id,
+            });
+            remainder = &remainder[end + 1..];
         } else if remainder.starts_with(&[Token::Backslash, Token::Backslash]) {
             syntax.push(Syntax::Literal { char: '\\' });
-            remainder = &remainder[2..]
+            remainder = &remainder[2..];
         } else if remainder.starts_with(&[Token::Backslash, Token::Literal('d')]) {
             syntax.push(Syntax::Digit);
             remainder = &remainder[2..];
@@ -134,6 +139,11 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
     }
 
     syntax
+}
+
+pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
+    let mut capture_group_id = 0;
+    parse_pattern_core(pattern, &mut capture_group_id)
 }
 
 #[cfg(test)]
@@ -260,7 +270,35 @@ mod tests {
                     vec![Syntax::Literal { char: 'a' }, Syntax::Digit],
                     vec![Syntax::Literal { char: 'b' }],
                 ],
+                id: 1,
             },
+        );
+    }
+
+    #[test]
+    fn test_parse_pattern_capture_group_ids() {
+        let items = parse_pattern(&[
+            Token::OpenBracket,
+            Token::Literal('a'),
+            Token::CloseBracket,
+            Token::OpenBracket,
+            Token::Literal('b'),
+            Token::CloseBracket,
+        ]);
+
+        assert_eq!(
+            items.get(0).unwrap(),
+            &Syntax::CaptureGroup {
+                options: vec![vec![Syntax::Literal { char: 'a' }]],
+                id: 1
+            }
+        );
+        assert_eq!(
+            items.get(1).unwrap(),
+            &Syntax::CaptureGroup {
+                options: vec![vec![Syntax::Literal { char: 'b' }]],
+                id: 2
+            }
         );
     }
 }
