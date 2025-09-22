@@ -30,7 +30,7 @@ pub enum Syntax {
     ZeroOrMore { syntax: Box<Syntax> },
 
     /// Matches either of the contained syntax options.
-    Alternation { options: Vec<Vec<Syntax>> },
+    CaptureGroup { options: Vec<Vec<Syntax>> },
 }
 
 pub fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
@@ -86,7 +86,7 @@ pub fn parse_pattern(pattern: &[Token]) -> Vec<Syntax> {
                 .map(|o| parse_pattern(o))
                 .collect();
 
-            syntax.push(Syntax::Alternation { options: options });
+            syntax.push(Syntax::CaptureGroup { options: options });
             remainder = &remainder[end + 1..]
         } else if remainder.starts_with(&[Token::Backslash, Token::Backslash]) {
             syntax.push(Syntax::Literal { char: '\\' });
@@ -255,7 +255,7 @@ mod tests {
                 Token::Literal('b'),
                 Token::CloseBracket,
             ]),
-            Syntax::Alternation {
+            Syntax::CaptureGroup {
                 options: vec![
                     vec![Syntax::Literal { char: 'a' }, Syntax::Digit],
                     vec![Syntax::Literal { char: 'b' }],

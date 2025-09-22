@@ -74,7 +74,7 @@ fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
             "Only one-character matching syntax expected here, but found zero or more quantifier"
         ),
 
-        Syntax::Alternation { options: _ } => panic!(
+        Syntax::CaptureGroup { options: _ } => panic!(
             "Only one-character matching syntax expected here, but found alternation quantifier"
         ),
     };
@@ -144,7 +144,7 @@ fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
         return match_at_least(text, &s.deref(), &pattern[1..], 0);
     }
 
-    if let Syntax::Alternation { options: os } = syntax {
+    if let Syntax::CaptureGroup { options: os } = syntax {
         let pattern_remainder = &pattern[1..];
 
         for option in os {
