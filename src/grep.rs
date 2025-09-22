@@ -152,28 +152,6 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
             if let Some(match_total) = match_here(text, &pattern_total, cgroups) {
                 return Some(match_total);
             }
-
-            // let Some(match_option) = match_here(&text, option, cgroups) else {
-            //     continue;
-            // };
-
-            // let None = cgroups.insert(*id, match_option.clone()) else {
-            //     panic!("Duplicate capture group result '{}'", id)
-            // };
-
-            // if let Some(match_remainder) = match_here(
-            //     &text.slice(match_option.text.len()..),
-            //     pattern_remainder,
-            //     cgroups,
-            // ) {
-            //     return Some(Match::merge(match_option, match_remainder));
-            // } else {
-            //     // If the remainder does not match, we continue with the next option,
-            //     // but the capture group result has to be discarded again.
-            //     let Some(_) = cgroups.remove(id) else {
-            //         panic!("Unable to find capture group result '{}'", id);
-            //     };
-            // }
         }
 
         return None;
