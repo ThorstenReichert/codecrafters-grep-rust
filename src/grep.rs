@@ -7,8 +7,44 @@ use std::ops::Deref;
 use str::StringUtils;
 use syntax::Syntax;
 
-fn is_match(char: char, pattern: &Syntax) -> bool {
-    match pattern {
+struct Match {
+    text: Vec<char>,
+}
+
+impl Match {
+    /// Creates a match for the empty string.
+    fn empty() -> Match {
+        Match { text: vec![] }
+    }
+
+    /// Creates a Match from a single char that matched a single syntax item.
+    fn from_char(text: char) -> Match {
+        Match { text: vec![text] }
+    }
+
+    /// Creates a Match from a section of text that repeatedly matched the same single syntax item.
+    fn from_str(text: &str) -> Match {
+        Match {
+            text: text.chars().collect(),
+        }
+    }
+
+    /// Merges two Matches, creating a new instance.
+    #[inline(never)]
+    fn merge(head: Match, tail: Match) -> Match {
+        Match {
+            text: [head.text, tail.text].concat(),
+        }
+    }
+
+    /// Merges this Match instance with another one, mutating this instance.
+    fn merge_with(&mut self, other: Match) {
+        self.text.extend(other.text);
+    }
+}
+
+fn is_match(char: char, pattern: &Syntax) -> Option<Match> {
+    let is_match = match pattern {
         Syntax::Wildcard => true,
         Syntax::Literal { char: c } => *c == char,
         Syntax::Digit => patterns::is_digit(char),
@@ -41,40 +77,63 @@ fn is_match(char: char, pattern: &Syntax) -> bool {
         Syntax::Alternation { options: _ } => panic!(
             "Only one-character matching syntax expected here, but found alternation quantifier"
         ),
+    };
+
+    if is_match {
+        Some(Match::from_char(char))
+    } else {
+        None
     }
 }
 
-fn match_at_least(text: &str, syntax: &Syntax, pattern_remainder: &[Syntax], count: usize) -> bool {
+fn match_exactly(text: &str, syntax: &Syntax, count: usize) -> Option<Match> {
+    if text.len() < count {
+        return None;
+    }
+
+    for c in text.chars().take(count) {
+        let Some(_) = is_match(c, syntax) else {
+            return None;
+        };
+    }
+
+    Some(Match::from_str(&text.slice(0..count)))
+}
+
+fn match_at_least(
+    text: &str,
+    syntax: &Syntax,
+    pattern_remainder: &[Syntax],
+    count: usize,
+) -> Option<Match> {
     if let Syntax::OneOrMore { syntax: _ } = syntax {
         panic!("Nested quantifiers are not supported");
     }
 
-    if text.len() < count || text.chars().take(count).any(|c| !is_match(c, &syntax)) {
-        return false;
-    }
+    let Some(match_prefix) = match_exactly(text, syntax, count) else {
+        return None;
+    };
 
+    let mut match_head = match_prefix;
     let mut text_remainder = text.slice(count..);
     loop {
-        if match_here(text_remainder, pattern_remainder) {
-            return true;
-        }
-
-        let Some(c) = text_remainder.chars().next() else {
-            return false;
+        if let Some(match_tail) = match_here(text_remainder, pattern_remainder) {
+            match_head.merge_with(match_tail);
+            return Some(match_head);
         };
 
-        if !is_match(c, &syntax) {
-            return false;
-        }
+        let char = text_remainder.chars().next()?;
+        let match_char = is_match(char, &syntax)?;
 
+        match_head.merge_with(match_char);
         text_remainder = &text_remainder.slice(1..);
     }
 }
 
-fn match_here(text: &str, pattern: &[Syntax]) -> bool {
+fn match_here(text: &str, pattern: &[Syntax]) -> Option<Match> {
     let Some(syntax) = pattern.get(0) else {
         // The entire pattern matched, return success.
-        return true;
+        return Some(Match::empty());
     };
 
     if let Syntax::OneOrMore { syntax: s } = syntax {
@@ -90,23 +149,26 @@ fn match_here(text: &str, pattern: &[Syntax]) -> bool {
 
         for option in os {
             let pattern_option = [option, pattern_remainder].concat();
-            if match_here(text, &pattern_option) {
-                return true;
-            }    
+            if let Some(match_option) = match_here(text, &pattern_option) {
+                return Some(match_option);
+            }
         }
 
-        return false;
+        return None;
     }
 
     if let Syntax::EndOfLineAnchor = syntax {
-        return pattern.len() == 1 && text.len() == 0;
+        return (pattern.len() == 1 && text.len() == 0).then(|| Match::empty());
     }
 
     if let Some(c) = text.chars().next() {
-        return is_match(c, syntax) && match_here(&text.slice(1..), &pattern[1..]);
+        let match_char = is_match(c, syntax)?;
+        let match_remainder = match_here(&text.slice(1..), &pattern[1..])?;
+
+        return Some(Match::merge(match_char, match_remainder));
     }
 
-    return false;
+    return None;
 }
 
 pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
@@ -114,11 +176,14 @@ pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     let syntax = syntax::parse_pattern(&tokens);
 
     if let Some(Syntax::StartOfLineAnchor) = syntax.get(0) {
-        return match_here(input_line, &syntax[1..]);
+        return match match_here(input_line, &syntax[1..]) {
+            Some(_) => true,
+            None => false,
+        };
     }
 
     for start_index in 0..input_line.len() {
-        if match_here(&input_line.slice(start_index..), &syntax) {
+        if let Some(_) = match_here(&input_line.slice(start_index..), &syntax) {
             return true;
         }
     }
@@ -239,6 +304,11 @@ mod tests {
         assert!(match_pattern("cat", "(cat|dog)"));
         assert!(match_pattern("dog", "(cat|dog)"));
         assert!(!match_pattern("apple", "(cat|dog)"));
+    }
+
+    #[test]
+    fn test_debug() {
+        assert!(match_pattern("sally has 12 apples", "\\d\\d apples"));
     }
 
     #[test]
