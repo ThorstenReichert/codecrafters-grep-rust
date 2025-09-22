@@ -117,17 +117,17 @@ fn match_star(
 
 fn match_question_mark(
     text: &str,
-    syntax: &Syntax
+    syntax: &Syntax,
+    pattern: &[Syntax],
+    cgroups: &mut HashMap<u32, Match>
 ) -> Option<Match> {
-    let Some(char) = text.chars().next() else {
-        return Some(Match::empty());
-    };
+    let pattern_once: Vec<Syntax> = [&[syntax.clone()], pattern].concat();
 
-    let Some(match_once) = is_match(char, syntax) else {
-        return Some(Match::empty());
-    };
-
-    return Some(match_once);
+    if let Some(match_once) = match_here(text, &pattern_once, cgroups) {
+        return Some(match_once);
+    } else {
+        return match_here(text, pattern, cgroups);
+    }
 }
 
 fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>) -> Option<Match> {
@@ -149,7 +149,7 @@ fn match_here(text: &str, pattern: &[Syntax], cgroups: &mut HashMap<u32, Match>)
     }
 
     if let Syntax::ZeroOrOne { syntax: s } = syntax {
-        return match_question_mark(text, &s.deref());
+        return match_question_mark(text, &s.deref(), &pattern[1..], cgroups);
     }
 
     if let Syntax::CaptureGroup { options: os, id } = syntax {
@@ -241,11 +241,12 @@ pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 
     for start_index in 0..input_line.len() {
-        if let Some(_) = match_here(
+        if let Some(m) = match_here(
             &input_line.slice(start_index..),
             &syntax,
             &mut capture_groups,
         ) {
+            println!("Match = {:?}", m.text.iter().collect::<String>());
             return true;
         }
     }
@@ -378,11 +379,6 @@ mod tests {
     }
 
     #[test]
-    fn test_debug() {
-        assert!(match_pattern("sally has 12 apples", "\\d\\d apples"));
-    }
-
-    #[test]
     fn test_match_pattern_regression_tests() {
         assert!(!match_pattern("×-+=÷%", "\\w"));
         assert!(!match_pattern(
@@ -391,5 +387,6 @@ mod tests {
         ));
         assert!(match_pattern("goøö0Ogol", "g.+gol"));
         assert!(match_pattern("a cat", "a (cat|dog)"));
+        assert!(!match_pattern("once a dreaaamer, alwayszzz a dreaaamer", "once a (drea+mer), alwaysz? a \\1"));
     }
 }
