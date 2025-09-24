@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use crate::grep::tokens::Token;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +54,64 @@ fn into_character_class(tokens: &[Token], is_negated: bool) -> Syntax {
     }
 }
 
+#[derive(PartialEq)]
+enum BracketKind {
+    Bracket,
+    SquareBracket,
+}
+
+fn is_opening_bracket(token: &Token) -> Option<BracketKind> {
+    match token {
+        Token::OpenBracket => Some(BracketKind::Bracket),
+        Token::OpenSquareBracket => Some(BracketKind::SquareBracket),
+        _ => None,
+    }
+}
+
+fn is_closing_bracket(token: &Token) -> Option<BracketKind> {
+    match token {
+        Token::CloseBracket => Some(BracketKind::Bracket),
+        Token::CloseSquareBracket => Some(BracketKind::SquareBracket),
+        _ => None,
+    }
+}
+
+fn find_closing_bracket(pattern: &[Token]) -> Option<usize> {
+    let first = pattern.get(0).expect("Pattern must not be empty");
+    let Some(kind) = is_opening_bracket(first) else {
+        panic!("First token must be an opening bracket");
+    };
+
+    let mut index = 1;
+    let mut brackets = VecDeque::from([]);
+
+    for token in pattern[1..].iter() {
+        if let Some(open_kind) = is_opening_bracket(token) {
+            brackets.push_back(open_kind);
+        }
+
+        if let Some(close_kind) = is_closing_bracket(token) {
+            let last_open_bracket = brackets.pop_back();
+
+            if let Some(open_kind) = last_open_bracket {
+                if open_kind != close_kind {
+                    // Open/closed bracket types do not match, fail search;
+                    return None;
+                }
+            } else if close_kind == kind {
+                return Some(index);
+            } else {
+                // Open/closed bracket types do not match, fail search;
+                return None;
+            }
+        }
+
+        index += 1;
+    }
+
+    return None;
+}
+
 fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
@@ -65,9 +125,7 @@ fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Synt
         let prev_len = remainder.len();
 
         if remainder.starts_with(&[Token::OpenSquareBracket]) {
-            let Some(end) = remainder
-                .iter()
-                .position(|t| *t == Token::CloseSquareBracket)
+            let Some(end) = find_closing_bracket(remainder)
             else {
                 panic!("Incomplete character class (missing closing bracket)");
             };
@@ -83,7 +141,7 @@ fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Synt
                 remainder = &remainder[end + 1..];
             }
         } else if remainder.starts_with(&[Token::OpenBracket]) {
-            let Some(end) = remainder.iter().position(|t| *t == Token::CloseBracket) else {
+            let Some(end) = find_closing_bracket(remainder) else {
                 panic!("Incomplete alternation (missing closing bracket)");
             };
 
