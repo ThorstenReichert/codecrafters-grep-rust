@@ -41,7 +41,7 @@ fn grep_file(pattern: &str, file: &str) {
 
         process::exit(0);
     } else {
-        process::exit(-1);
+        process::exit(-2);
     }
 }
 
@@ -54,9 +54,9 @@ fn main() {
 
     let pattern = env::args().nth(2).unwrap();
 
-    if env::args().len() == 2 {
+    if env::args().len() == 3 {
         grep_stdin(&pattern);
-    } else if env::args().len() == 3 {
+    } else if env::args().len() == 4 {
         let file = env::args().nth(3).unwrap();
         grep_file(&pattern, &file);
     } else {
