@@ -25,29 +25,31 @@ fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
     Ok(io::BufReader::new(file).lines())
 }
 
-fn grep_file(pattern: &str, file: &str) {
-    if let Ok(lines) = read_lines(file) {
-        let mut match_count = 0;
+fn grep_files(pattern: &str, files: &[String]) {
+    let mut match_count = 0;
+    
+    for file in files {
+        if let Ok(lines) = read_lines(file) {
+            for line in lines.map_while(Result::ok) {
+                if match_pattern(&line, pattern) {
+                    match_count += 1;
 
-        for line in lines.map_while(Result::ok) {
-            if match_pattern(&line, pattern) {
-                match_count += 1;
+                    if match_count > 1 {
+                        println!("");
+                    }
 
-                if match_count > 1 {
-                    println!("");
+                    print!("{}", line);
                 }
-                
-                print!("{}", line);
             }
-        }
-
-        if match_count > 0 {
-            process::exit(0);
         } else {
-            process::exit(1);
+            process::exit(-2);
         }
+    }
+
+    if match_count > 0 {
+        process::exit(0);
     } else {
-        process::exit(-2);
+        process::exit(1);
     }
 }
 
@@ -62,9 +64,9 @@ fn main() {
 
     if env::args().len() == 3 {
         grep_stdin(&pattern);
-    } else if env::args().len() == 4 {
-        let file = env::args().nth(3).unwrap();
-        grep_file(&pattern, &file);
+    } else if env::args().len() >= 4 {
+        let files: Vec<String> = env::args().skip(3).collect();
+        grep_files(&pattern, &files);
     } else {
         process::exit(-1);
     }
