@@ -33,11 +33,11 @@ fn grep_file(pattern: &str, file: &str) {
             if match_pattern(&line, pattern) {
                 match_count += 1;
 
-                if match_count == 1 {
-                    print!("{}", line);
-                } else {
-                    println!("{}", line);
+                if match_count > 1 {
+                    println!("");
                 }
+                
+                print!("{}", line);
             }
         }
 
