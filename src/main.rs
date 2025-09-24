@@ -59,34 +59,36 @@ fn grep_files(pattern: &str, files: &[String], prefix: bool) {
 
 // Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
-    if env::args().nth(1).unwrap() != "-E" {
-        println!("Expected first argument to be '-E'");
+    let Some(pattern_flag_index) = env::args().position(|arg| arg == "-E") else {
+        println!("Pattern argument '-E' is required");
         process::exit(1);
-    }
+    };
 
-    let pattern = env::args().nth(2).unwrap();
+    let pattern = env::args().nth(pattern_flag_index + 1).unwrap();
 
-    if env::args().len() == 3 {
+    let arg_count = env::args().len();
+    let recursive_flag = match env::args().find(|arg| arg == "-r") {
+        Some(_) => true,
+        None => false,
+    };
+
+    if arg_count < 4 {
         grep_stdin(&pattern);
-    } else if env::args().len() >= 4 {
-        if env::args().nth(3).unwrap() == "-r" {
-            let mut files = vec![];
-            let directory = env::args().nth(4).unwrap();
+    } else if recursive_flag {
+        let mut files = vec![];
+        let directory = env::args().nth(4).unwrap();
 
-            let walker = walkdir::WalkDir::new(directory);
-            for file in walker.into_iter().filter_map(|e| e.ok()) {
-                if file.file_type().is_file() {
-                    let path = file.path().display().to_string();
-                    files.push(path);
-                }
+        let walker = walkdir::WalkDir::new(directory);
+        for file in walker.into_iter().filter_map(|e| e.ok()) {
+            if file.file_type().is_file() {
+                let path = file.path().display().to_string();
+                files.push(path);
             }
-
-            grep_files(&pattern, &files, true);
-        } else {
-            let files: Vec<String> = env::args().skip(3).collect();
-            grep_files(&pattern, &files, files.len() > 1);
         }
+
+        grep_files(&pattern, &files, true);
     } else {
-        process::exit(-1);
+        let files: Vec<String> = env::args().skip(3).collect();
+        grep_files(&pattern, &files, files.len() > 1);
     }
 }
