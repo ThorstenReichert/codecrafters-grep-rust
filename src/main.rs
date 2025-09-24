@@ -27,7 +27,7 @@ fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
 
 fn grep_files(pattern: &str, files: &[String]) {
     let mut match_count = 0;
-    
+
     for file in files {
         if let Ok(lines) = read_lines(file) {
             for line in lines.map_while(Result::ok) {
@@ -38,7 +38,11 @@ fn grep_files(pattern: &str, files: &[String]) {
                         println!("");
                     }
 
-                    print!("{0}:{1}", file, line);
+                    if files.len() > 1 {
+                        print!("{0}:{1}", file, line);
+                    } else {
+                        print!("{}", line);
+                    }
                 }
             }
         } else {
