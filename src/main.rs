@@ -25,7 +25,7 @@ fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
     Ok(io::BufReader::new(file).lines())
 }
 
-fn grep_files(pattern: &str, files: &[String]) {
+fn grep_files(pattern: &str, files: &[String], prefix: bool) {
     let mut match_count = 0;
 
     for file in files {
@@ -38,7 +38,7 @@ fn grep_files(pattern: &str, files: &[String]) {
                         println!("");
                     }
 
-                    if files.len() > 1 {
+                    if prefix {
                         print!("{0}:{1}", file, line);
                     } else {
                         print!("{}", line);
@@ -69,8 +69,23 @@ fn main() {
     if env::args().len() == 3 {
         grep_stdin(&pattern);
     } else if env::args().len() >= 4 {
-        let files: Vec<String> = env::args().skip(3).collect();
-        grep_files(&pattern, &files);
+        if env::args().nth(3).unwrap() == "-r" {
+            let mut files = vec![];
+            let directory = env::args().nth(4).unwrap();
+
+            let walker = walkdir::WalkDir::new(directory);
+            for file in walker.into_iter().filter_map(|e| e.ok()) {
+                if file.file_type().is_file() {
+                    let path = file.path().display().to_string();
+                    files.push(path);
+                }
+            }
+
+            grep_files(&pattern, &files, true);
+        } else {
+            let files: Vec<String> = env::args().skip(3).collect();
+            grep_files(&pattern, &files, files.len() > 1);
+        }
     } else {
         process::exit(-1);
     }
