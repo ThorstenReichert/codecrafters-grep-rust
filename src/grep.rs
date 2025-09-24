@@ -391,5 +391,6 @@ mod tests {
         assert!(match_pattern("goøö0Ogol", "g.+gol"));
         assert!(match_pattern("a cat", "a (cat|dog)"));
         assert!(!match_pattern("once a dreaaamer, alwayszzz a dreaaamer", "once a (drea+mer), alwaysz? a \\1"));
+        assert!(match_pattern("cat and fish, cat with fish, cat and fish", "((c.t|d.g) and (f..h|b..d)), \\2 with \\3, \\1"));
     }
 }

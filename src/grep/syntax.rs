@@ -112,6 +112,44 @@ fn find_closing_bracket(pattern: &[Token]) -> Option<usize> {
     return None;
 }
 
+fn find_alternations(pattern: &[Token]) -> Vec<Vec<Token>> {
+    let mut options: Vec<Vec<Token>> = vec![];
+    let mut remainder = pattern;
+    let mut open_count = 0;
+    let mut current = vec![];
+
+    while let Some(token) = remainder.get(0) {
+        if let Token::Bar = token {
+            if open_count == 0 {
+                // Only split options on | when brackets are currently balanced
+                // (aka we are "top-level").
+
+                options.push(current.to_vec());
+                current = vec![];
+            } else {
+                current.push(token.clone());
+            }
+        } else {
+            if let Some(_) = is_opening_bracket(token) {
+                open_count += 1;
+            }
+
+            if let Some(_) = is_closing_bracket(token) {
+                open_count -= 1;
+            }
+
+            current.push(token.clone());
+        }
+
+        remainder = &remainder[1..];
+    }
+
+    // Push the last option.
+    options.push(current.to_vec());
+
+    options
+}
+
 fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Syntax> {
     let mut syntax: Vec<Syntax> = vec![];
     let mut remainder = pattern;
@@ -147,8 +185,8 @@ fn parse_pattern_core(pattern: &[Token], capture_group_id: &mut u32) -> Vec<Synt
 
             *capture_group_id += 1;
             let id = *capture_group_id;
-            let options: Vec<Vec<Syntax>> = remainder[1..end]
-                .split(|t| *t == Token::Bar)
+            let options = find_alternations(&remainder[1..end])
+                .iter()
                 .map(|o| parse_pattern_core(o, capture_group_id))
                 .collect();
 
