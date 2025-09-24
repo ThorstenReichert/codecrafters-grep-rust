@@ -31,9 +31,8 @@ fn grep_file(pattern: &str, file: &str) {
         let mut has_match = false;
 
         for line in lines.map_while(Result::ok) {
-            println!("Matching Line '{}'", line);
             if match_pattern(&line, pattern) {
-                if !has_match {
+                if has_match {
                     println!("");
                     has_match = true;
                 }
