@@ -1,5 +1,7 @@
 use std::env;
-use std::io;
+use std::fs::File;
+use std::io::{self, stdout, BufRead};
+use std::path::Path;
 use std::process;
 
 mod grep;
@@ -13,9 +15,34 @@ fn grep_stdin(pattern: &str) -> i32 {
 
     // Uncomment this block to pass the first stage
     if match_pattern(&input_line, &pattern) {
-        0
+        process::exit(0);
     } else {
-        1
+        process::exit(1);
+    }
+}
+
+fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(filename)?;
+    Ok(io::BufReader::new(file).lines())
+}
+
+fn grep_file(pattern: &str, file: &str) {
+    if let Ok(lines) = read_lines(file) {
+        let mut is_first = true;
+        for line in lines.map_while(Result::ok) {
+            if match_pattern(&line, pattern) {
+                if !is_first {
+                    println!("");
+                    is_first = false;
+                }
+                print!("{}", line);
+            }
+        }
+    } else {
+        process::exit(-1);
     }
 }
 
@@ -27,6 +54,13 @@ fn main() {
     }
 
     let pattern = env::args().nth(2).unwrap();
-    
-    process::exit(grep_stdin(&pattern))
+
+    if env::args().len() == 2 {
+        grep_stdin(&pattern);
+    } else if env::args().len() == 3 {
+        let file = env::args().nth(3).unwrap();
+        grep_file(&pattern, &file);
+    } else {
+        process::exit(-1);
+    }
 }
