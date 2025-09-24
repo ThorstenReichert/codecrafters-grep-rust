@@ -241,12 +241,11 @@ pub fn match_pattern(input_line: &str, pattern: &str) -> bool {
     }
 
     for start_index in 0..input_line.len() {
-        if let Some(m) = match_here(
+        if let Some(_) = match_here(
             &input_line.slice(start_index..),
             &syntax,
             &mut capture_groups,
         ) {
-            println!("Match = {:?}", m.text.iter().collect::<String>());
             return true;
         }
     }
