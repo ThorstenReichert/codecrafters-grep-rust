@@ -20,27 +20,28 @@ fn grep_stdin(pattern: &str) -> i32 {
     }
 }
 
-fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>>
-{
+fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>> {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
 }
 
 fn grep_file(pattern: &str, file: &str) {
     if let Ok(lines) = read_lines(file) {
-        let mut has_match = false;
+        let mut match_count = 0;
 
         for line in lines.map_while(Result::ok) {
             if match_pattern(&line, pattern) {
-                if has_match {
-                    println!("");
-                    has_match = true;
+                match_count += 1;
+
+                if match_count == 1 {
+                    print!("{}", line);
+                } else {
+                    println!("{}", line);
                 }
-                print!("{}", line);
             }
         }
 
-        if has_match {
+        if match_count > 0 {
             process::exit(0);
         } else {
             process::exit(1);
