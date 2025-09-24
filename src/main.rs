@@ -1,7 +1,6 @@
 use std::env;
 use std::fs::File;
-use std::io::{self, stdout, BufRead};
-use std::path::Path;
+use std::io::{self, BufRead};
 use std::process;
 
 mod grep;
@@ -21,9 +20,7 @@ fn grep_stdin(pattern: &str) -> i32 {
     }
 }
 
-fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-where
-    P: AsRef<Path>,
+fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>>
 {
     let file = File::open(filename)?;
     Ok(io::BufReader::new(file).lines())
@@ -41,6 +38,8 @@ fn grep_file(pattern: &str, file: &str) {
                 print!("{}", line);
             }
         }
+
+        process::exit(0);
     } else {
         process::exit(-1);
     }
