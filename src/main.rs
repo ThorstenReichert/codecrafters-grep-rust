@@ -29,8 +29,9 @@ fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>>
 fn grep_file(pattern: &str, file: &str) {
     if let Ok(lines) = read_lines(file) {
         let mut has_match = false;
-        
+
         for line in lines.map_while(Result::ok) {
+            println!("Matching Line '{}'", line);
             if match_pattern(&line, pattern) {
                 if !has_match {
                     println!("");
