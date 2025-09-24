@@ -28,18 +28,22 @@ fn read_lines(filename: &str) -> io::Result<io::Lines<io::BufReader<File>>>
 
 fn grep_file(pattern: &str, file: &str) {
     if let Ok(lines) = read_lines(file) {
-        let mut is_first = true;
+        let mut has_match = true;
         for line in lines.map_while(Result::ok) {
             if match_pattern(&line, pattern) {
-                if !is_first {
+                if !has_match {
                     println!("");
-                    is_first = false;
+                    has_match = false;
                 }
                 print!("{}", line);
             }
         }
 
-        process::exit(0);
+        if has_match {
+            process::exit(0);
+        } else {
+            process::exit(1);
+        }
     } else {
         process::exit(-2);
     }
