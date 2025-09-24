@@ -38,7 +38,7 @@ fn grep_files(pattern: &str, files: &[String]) {
                         println!("");
                     }
 
-                    print!("{}", line);
+                    print!("{0}:{1}", file, line);
                 }
             }
         } else {
